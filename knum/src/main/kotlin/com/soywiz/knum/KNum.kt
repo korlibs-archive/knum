@@ -1,5 +1,6 @@
 package com.soywiz.knum
 
+import java.io.Closeable
 import java.nio.Buffer
 import java.nio.FloatBuffer
 
@@ -17,16 +18,19 @@ object KNumExample {
     }
 }
 
-open class KNumContext {
+open class KNumContext : Closeable {
     class DefaultResult<T>(dims: IntArray, type: KNum.Type, val _data: Buffer) : KNum.Result<T>(dims, type) {
         override fun getData(): Buffer = _data
     }
 
-    open fun <T> session(callback: () -> T): T {
-        return callback()
+    override fun close() {
     }
 
-    fun <T> compute(tensor: KNum.Tensor<T>): KNum.Result<T> {
+    open fun <T> computeRoot(tensor: KNum.Tensor<T>): KNum.Result<T> {
+        return compute(tensor)
+    }
+
+    protected fun <T> compute(tensor: KNum.Tensor<T>): KNum.Result<T> {
         return when (tensor) {
             is KNum.Constant -> computeConstant(tensor)
             is KNum.Operation -> computeOperation(tensor)
@@ -34,11 +38,11 @@ open class KNumContext {
         }
     }
 
-    open fun <T> computeConstant(tensor: KNum.Constant<T>): KNum.Result<T> {
+    open protected fun <T> computeConstant(tensor: KNum.Constant<T>): KNum.Result<T> {
         return DefaultResult<T>(tensor.dims, tensor.type, tensor.data)
     }
 
-    open fun <T> computeOperation(tensor: KNum.Operation<T>): KNum.Result<T> = tensor.run {
+    open protected fun <T> computeOperation(tensor: KNum.Operation<T>): KNum.Result<T> = tensor.run {
         when (op) {
             "add", "sub", "mul", "div", "min", "max" -> computeBinaryOp<T>(op, compute(inputs[0] as KNum.Tensor<T>), compute(inputs[1] as KNum.Tensor<T>))
             "neg" -> computeUnaryOp<T>(op, compute(inputs[0] as KNum.Tensor<T>))
@@ -46,7 +50,7 @@ open class KNumContext {
         }
     }
 
-    open fun <T> computeUnaryOp(op: String, l: KNum.Result<T>): KNum.Result<T> {
+    open protected fun <T> computeUnaryOp(op: String, l: KNum.Result<T>): KNum.Result<T> {
         val lf = l.getData() as FloatBuffer
         val num = l.numElements
         val fop = when (op) {
@@ -66,7 +70,7 @@ open class KNumContext {
     protected fun fmax(l: Float, r: Float): Float = kotlin.math.max(l, r)
     protected fun fmin(l: Float, r: Float): Float = kotlin.math.min(l, r)
 
-    open fun <T> computeBinaryOp(op: String, l: KNum.Result<T>, r: KNum.Result<T>): KNum.Result<T> {
+    open protected fun <T> computeBinaryOp(op: String, l: KNum.Result<T>, r: KNum.Result<T>): KNum.Result<T> {
         val leftBuffer = l.getData() as FloatBuffer
         val rightBuffer = r.getData() as FloatBuffer
         val num = l.numElements
@@ -155,11 +159,11 @@ class KNum(val ctx: KNumContext) {
     fun <T> Tensor<T>.reshape(vararg dims: Int): Tensor<T> = Operation<T>("reshape", this.type, dims, arrayOf(this))
     fun <T> Tensor<T>.transpose(vararg axis: Int): Tensor<T> = Operation<T>("transpose", this.type, axis.map { this.dims[it] }.toIntArray(), arrayOf(this))
 
-    fun <T> Tensor<T>.compute(): Result<T> = ctx.compute(this)
+    fun <T> Tensor<T>.compute(): Result<T> = ctx.computeRoot(this)
 }
 
-fun <T> KNum(context: KNumContext = KNumContext(), callback: KNum.() -> T): T {
-    return context.session {
+fun <T> KNum(contextGenerator: () -> KNumContext = { KNumContext() }, callback: KNum.() -> T): T {
+    return contextGenerator().use { context ->
         callback(KNum(context))
     }
 }

@@ -1,5 +1,6 @@
 
 dependencies {
     compile project(":knum")
+    testCompile project(":knum").sourceSets.test.output // https://softnoise.wordpress.com/2014/09/07/gradle-sub-project-test-dependencies-in-multi-project-builds/
     compile "org.jocl:jocl:2.0.0"
 }
