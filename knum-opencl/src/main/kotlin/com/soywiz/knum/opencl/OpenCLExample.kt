@@ -1,4 +1,4 @@
-package com.soywiz.kaifu2x.cl
+package com.soywiz.knum.opencl
 
 import org.jocl.*
 import org.jocl.CL.*

@@ -6,4 +6,5 @@ import com.soywiz.knum.KNumContext
 fun <T> KNumTensorFlow(callback: KNum.() -> T) = KNum(TensorFlowKNumContext(), callback)
 
 class TensorFlowKNumContext : KNumContext() {
+
 }
