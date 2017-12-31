@@ -17,6 +17,11 @@ open class KNumTest {
     }
 
     @Test
+    fun mulVectors() = KNum({ contextGenerate() }) {
+        assertEquals(listOf(-1f, -4f, -9f, -16f), (floatArrayOf(1f, 2f, 3f, 4f).const * floatArrayOf(-1f, -2f, -3f, -4f).const).compute().getFloatArray().toList())
+    }
+
+    @Test
     fun mulVectorScalar() = KNum({ contextGenerate() }) {
         assertEquals(listOf(2f, 4f, 6f, 8f), (floatArrayOf(1f, 2f, 3f, 4f).const * 2f).compute().getFloatArray().toList())
     }
