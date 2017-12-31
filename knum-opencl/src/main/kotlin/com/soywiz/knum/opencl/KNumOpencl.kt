@@ -31,10 +31,10 @@ class KNumOpenClContext(val forceGpu: Boolean = false) : KNumContext() {
     private val programCache = LinkedHashMap<String, ClProgram>()
 
     private fun generateBinopProgram(op: String, scalar: Boolean) = programCache.getOrPut("myOperation$op$scalar") {
-        val l = "a[get_global_id(0)]"
-        val r = if (scalar) "b[0]" else "b[get_global_id(0)]"
+        val l = "l[get_global_id(0)]"
+        val r = if (scalar) "r[0]" else "r[get_global_id(0)]"
         context.createProgram("""
-            __kernel void myOperation(__global const float *a, __global const float *b, __global float *c) { c[get_global_id(0)] = $l $op $r; }
+            __kernel void myOperation(__global const float *l, __global const float *r, __global float *o) { o[get_global_id(0)] = $l $op $r; }
         """)
     }["myOperation"]
 
