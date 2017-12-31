@@ -21,9 +21,9 @@ object KNumExample {
 
 // @TODO: Convert AST into other IR so we can clean old stuff to use less memory
 open class KNumContext : Closeable {
-    class DefaultResult<T>(dims: IntArray, type: KNum.Type, val _data: Buffer) : KNum.Result<T>(dims, type) {
+    class DefaultResult<T>(dims: Dimensions, type: KNum.Type, val _data: Buffer) : KNum.Result<T>(dims, type) {
         override fun getData(): Buffer = _data
-        override fun reshape(dims: IntArray, type: KNum.Type): KNum.Result<T> = DefaultResult(dims, type, _data)
+        override fun reshape(dims: Dimensions, type: KNum.Type): KNum.Result<T> = DefaultResult(dims, type, _data)
     }
 
     override fun close() {
@@ -56,8 +56,8 @@ open class KNumContext : Closeable {
                 when (itensor.rank) {
                     2 -> {
                         val i = Float2Transfer(itensor.getFloatBuffer(), itensor.dims[0], itensor.dims[1])
-                        val outDims = intArrayOf(itensor.dims[0] + pad[0] * 2, itensor.dims[1] + pad[1] * 2)
-                        val outBuffer = FloatBuffer.allocate(outDims.reduce { acc, i -> acc * i })
+                        val outDims = Dimensions(itensor.dims[0] + pad[0] * 2, itensor.dims[1] + pad[1] * 2)
+                        val outBuffer = FloatBuffer.allocate(outDims.numElements)
                         val o = Float2Transfer(outBuffer, outDims[0], outDims[1])
                         val out = DefaultResult<T>(outDims, itensor.type, outBuffer)
                         val padX = pad[0]
@@ -136,18 +136,32 @@ open class KNumContext : Closeable {
     }
 }
 
+class Dimensions(vararg val values: Int) {
+    constructor(values: Iterable<Int>) : this(*values.toList().toIntArray())
+
+    val rank: Int get() = values.size
+    val numElements: Int by lazy { values.reduce { acc, i -> acc * i } }
+    val isSingle: Boolean get() = values.size == 1 && values[0] == 1
+    fun toList() = values.toList()
+    operator fun get(index: Int) = values[index]
+    override fun toString(): String = values.joinToString(", ")
+}
+
+fun IntArray.toDimensions() = Dimensions(*this)
+fun List<Int>.toDimensions() = Dimensions(*this.toIntArray())
+
 class KNum(val ctx: KNumContext) {
     enum class Type(val size: Int) { INT(4), FLOAT(4) }
 
-    abstract class Tensor<T>(val dims: IntArray, val type: Type) {
-        val rank: Int get() = dims.size
-        val numElements: Int by lazy { dims.reduce { acc, i -> acc * i } }
-        val isSingle: Boolean get() = dims.size == 1 && dims[0] == 1
-        override fun toString(): String = "Tensor[$type](${dims.joinToString(", ")})"
+    abstract class Tensor<T>(val dims: Dimensions, val type: Type) {
+        val rank: Int get() = dims.rank
+        val numElements: Int get() = dims.numElements
+        val isSingle: Boolean get() = dims.isSingle
+        override fun toString(): String = "Tensor[$type]($dims)"
     }
 
-    abstract class Result<T>(dims: IntArray, type: Type) : Tensor<T>(dims, type) {
-        abstract fun reshape(dims: IntArray, type: Type): Result<T>
+    abstract class Result<T>(dims: Dimensions, type: Type) : Tensor<T>(dims, type) {
+        abstract fun reshape(dims: Dimensions, type: Type): Result<T>
         abstract fun getData(): Buffer
 
         fun getFloatBuffer(): FloatBuffer = getData() as FloatBuffer
@@ -156,11 +170,11 @@ class KNum(val ctx: KNumContext) {
         fun getIntArray(): IntArray = getIntBuffer().run { IntArray(limit()).apply { position(0); get(this) } }
     }
 
-    class Operation<T>(val op: String, type: Type, dims: IntArray, val inputs: Array<Tensor<*>>) : Tensor<T>(dims, type) {
+    class Operation<T>(val op: String, type: Type, dims: Dimensions, val inputs: Array<Tensor<*>>) : Tensor<T>(dims, type) {
         override fun toString(): String = "Operation($op[$type], ${dims.toList()})(${inputs.toList()})"
     }
 
-    class Constant<T>(dims: IntArray, type: Type, val data: Buffer) : Tensor<T>(dims, type) {
+    class Constant<T>(dims: Dimensions, type: Type, val data: Buffer) : Tensor<T>(dims, type) {
         init {
             if (numElements != data.limit()) {
                 throw IllegalArgumentException("${dims.toList()}")
@@ -168,11 +182,11 @@ class KNum(val ctx: KNumContext) {
         }
     }
 
-    val IntArray.const: Constant<Int> get() = Constant(intArrayOf(this.size), Type.INT, IntBuffer.wrap(this))
-    val FloatArray.const: Constant<Float> get() = Constant(intArrayOf(this.size), Type.FLOAT, FloatBuffer.wrap(this))
+    val IntArray.const: Constant<Int> get() = Constant(Dimensions(this.size), Type.INT, IntBuffer.wrap(this))
+    val FloatArray.const: Constant<Float> get() = Constant(Dimensions(this.size), Type.FLOAT, FloatBuffer.wrap(this))
 
-    val Int.const: Constant<Int> get() = Constant(intArrayOf(1), Type.INT, IntBuffer.wrap(intArrayOf(this)))
-    val Float.const: Constant<Float> get() = Constant(intArrayOf(1), Type.FLOAT, FloatBuffer.wrap(floatArrayOf(this)))
+    val Int.const: Constant<Int> get() = Constant(Dimensions(1), Type.INT, IntBuffer.wrap(intArrayOf(this)))
+    val Float.const: Constant<Float> get() = Constant(Dimensions(1), Type.FLOAT, FloatBuffer.wrap(floatArrayOf(this)))
 
     val <T> T.const: Constant<T>
         get() = when (this) {
@@ -200,9 +214,10 @@ class KNum(val ctx: KNumContext) {
     operator fun <T> Tensor<T>.plus(that: T): Tensor<T> = Operation<T>("add", this.type, this.dims, arrayOf(this, that.const))
     operator fun <T> Tensor<T>.minus(that: T): Tensor<T> = Operation<T>("sub", this.type, this.dims, arrayOf(this, that.const))
 
-    fun <T> Tensor<T>.reshape(vararg dims: Int): Tensor<T> = Operation<T>("reshape", this.type, dims, arrayOf(this))
-    fun <T> Tensor<T>.transpose(vararg axis: Int): Tensor<T> = Operation<T>("transpose", this.type, axis.map { this.dims[it] }.toIntArray(), arrayOf(this))
-    fun <T> Tensor<T>.pad(vararg pads: Int): Tensor<T> = Operation<T>("pad", this.type, (0 until pads.size).map { dims[it] + pads[it] * 2 }.toIntArray(), arrayOf(this, pads.const))
+    fun <T> Tensor<T>.reshape(dims: Dimensions): Tensor<T> = Operation<T>("reshape", this.type, dims, arrayOf(this))
+    fun <T> Tensor<T>.reshape(vararg dims: Int): Tensor<T> = reshape(dims.toDimensions())
+    fun <T> Tensor<T>.transpose(vararg axis: Int): Tensor<T> = Operation<T>("transpose", this.type, Dimensions(axis.map { this.dims.values[it] }), arrayOf(this))
+    fun <T> Tensor<T>.pad(vararg pads: Int): Tensor<T> = Operation<T>("pad", this.type, Dimensions((0 until pads.size).map { dims.values[it] + pads[it] * 2 }), arrayOf(this, pads.const))
 
     fun <T> Tensor<T>.compute(): Result<T> = ctx.computeRoot(this)
 }

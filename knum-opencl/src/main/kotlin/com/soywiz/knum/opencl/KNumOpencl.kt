@@ -1,5 +1,6 @@
 package com.soywiz.knum.opencl
 
+import com.soywiz.knum.Dimensions
 import com.soywiz.knum.KNum
 import com.soywiz.knum.KNumContext
 import java.nio.Buffer
@@ -68,8 +69,8 @@ class KNumOpenClContext(val forceGpu: Boolean = false) : KNumContext() {
         println(msg())
     }
 
-    inner class ClBufferResult<T>(dims: IntArray, type: KNum.Type, val buffer: ClBuffer) : KNum.Result<T>(dims, type) {
-        override fun reshape(dims: IntArray, type: KNum.Type): ClBufferResult<T> = ClBufferResult(dims, type, buffer)
+    inner class ClBufferResult<T>(dims: Dimensions, type: KNum.Type, val buffer: ClBuffer) : KNum.Result<T>(dims, type) {
+        override fun reshape(dims: Dimensions, type: KNum.Type): ClBufferResult<T> = ClBufferResult(dims, type, buffer)
         override fun getData(): Buffer = when (type) {
             KNum.Type.INT -> buffer.readInts(queue)
             KNum.Type.FLOAT -> buffer.readFloats(queue)
