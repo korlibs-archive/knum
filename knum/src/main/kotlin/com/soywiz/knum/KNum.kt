@@ -18,6 +18,7 @@ object KNumExample {
     }
 }
 
+// @TODO: Convert AST into other IR so we can clean old stuff to use less memory
 open class KNumContext : Closeable {
     class DefaultResult<T>(dims: IntArray, type: KNum.Type, val _data: Buffer) : KNum.Result<T>(dims, type) {
         override fun getData(): Buffer = _data
@@ -80,7 +81,7 @@ open class KNumContext : Closeable {
         fun getR_multi(n: Int) = rightBuffer[n]
 
         val getL = ::getL_multi
-        val getR = if (r.dims.size == 1 && r.dims[0] == 1) ::getR_single else ::getR_multi
+        val getR = if (r.isSingle) ::getR_single else ::getR_multi
 
         val fop = when (op) {
             "add" -> ::fadd
@@ -103,6 +104,7 @@ class KNum(val ctx: KNumContext) {
 
     abstract class Tensor<T>(val dims: IntArray, val type: Type) {
         val numElements: Int by lazy { dims.reduce { acc, i -> acc * i } }
+        val isSingle: Boolean get() = dims.size == 1 && dims[0] == 1
         override fun toString(): String = "Tensor[$type](${dims.joinToString(", ")})"
     }
 
