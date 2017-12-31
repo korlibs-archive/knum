@@ -1,5 +1,6 @@
 package com.soywiz.knum.opencl
 
+import com.soywiz.knum.toList
 import org.junit.Test
 import kotlin.test.assertEquals
 

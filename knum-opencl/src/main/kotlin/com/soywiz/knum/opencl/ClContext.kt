@@ -4,7 +4,10 @@ import org.intellij.lang.annotations.Language
 import org.jocl.*
 import org.jocl.CL.*
 import java.io.Closeable
+import java.nio.ByteBuffer
+import java.nio.ByteOrder
 import java.nio.FloatBuffer
+import java.nio.IntBuffer
 
 class ClContext(val type: DeviceType = DeviceType.ANY) : Closeable {
     enum class DeviceType {
@@ -54,6 +57,7 @@ class ClContext(val type: DeviceType = DeviceType.ANY) : Closeable {
     fun createCommandQueue() = ClCommandQueue(this)
     fun createBuffer(data: FloatArray, size: Int = data.size, writeable: Boolean = false) = ClBuffer(this, Pointer.to(data), Sizeof.cl_float, size, writeable)
     fun createBuffer(data: FloatBuffer, size: Int = data.limit(), writeable: Boolean = false) = ClBuffer(this, Pointer.to(data), Sizeof.cl_float, size, writeable)
+    fun createBuffer(data: IntBuffer, size: Int = data.limit(), writeable: Boolean = false) = ClBuffer(this, Pointer.to(data), Sizeof.cl_int4, size, writeable)
     fun createEmptyBuffer(elementSize: Int, length: Int, writeable: Boolean = true) = ClBuffer(this, null, elementSize, length, writeable = true)
     fun createProgram(@Language("opencl") source: String) = ClProgram(this, source)
 
@@ -69,8 +73,9 @@ class ClContext(val type: DeviceType = DeviceType.ANY) : Closeable {
 }
 
 class ClQueueContext(val queue: ClCommandQueue) {
+    fun ClBuffer.readInts() = readInts(queue)
     fun ClBuffer.readFloats() = readFloats(queue)
-    fun ClBuffer.readFloatsQueue() = readFloatsQueue(queue)
+    //fun ClBuffer.readFloatsQueue() = readFloatsQueue(queue)
 
     operator fun ClKernel.invoke(vararg args: ClBuffer) = invoke(queue, *args)
     fun ClKernel.invokeQueue(vararg args: ClBuffer) = invokeQueue(queue, *args)
@@ -86,8 +91,11 @@ class ClBuffer(val ctx: ClContext, val ptr: Pointer?, val elementSize: Int, val 
     }
     val mem = clCreateBuffer(ctx.context, flags, sizeInBytes.toLong(), ptr, null)
 
-    fun readFloats(queue: ClCommandQueue): FloatArray = queue.readFloats(this).apply { queue.waitCompleted() }
-    fun readFloatsQueue(queue: ClCommandQueue): FloatArray = queue.readFloats(this)
+    //fun readIntsQueue(queue: ClCommandQueue): IntArray = queue.readByteBuffer(this)
+    //fun readFloatsQueue(queue: ClCommandQueue): FloatArray = queue.readByteBuffer(this)
+
+    fun readInts(queue: ClCommandQueue): IntBuffer = queue.readByteBuffer(this).apply { queue.waitCompleted() }.asIntBuffer()
+    fun readFloats(queue: ClCommandQueue): FloatBuffer = queue.readByteBuffer(this).apply { queue.waitCompleted() }.asFloatBuffer()
 
     override fun close() {
         clReleaseMemObject(mem)
@@ -132,8 +140,8 @@ class ClKernel(val program: ClProgram, val name: String) {
 class ClCommandQueue(val ctx: ClContext) : Closeable {
     val commandQueue = clCreateCommandQueue(ctx.context, ctx.device, 0, null)
 
-    fun readFloats(buffer: ClBuffer): FloatArray {
-        val out = FloatArray(buffer.length)
+    fun readByteBuffer(buffer: ClBuffer): ByteBuffer {
+        val out = ByteBuffer.allocate(buffer.sizeInBytes).order(ByteOrder.nativeOrder())
         clEnqueueReadBuffer(commandQueue, buffer.mem, CL_TRUE, 0, buffer.sizeInBytes.toLong(), Pointer.to(out), 0, null, null)
         return out
     }

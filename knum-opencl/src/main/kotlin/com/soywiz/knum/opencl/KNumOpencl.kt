@@ -4,6 +4,7 @@ import com.soywiz.knum.KNum
 import com.soywiz.knum.KNumContext
 import java.nio.Buffer
 import java.nio.FloatBuffer
+import java.nio.IntBuffer
 
 fun <T> KNumOpenCl(forceGpu: Boolean = false, callback: KNum.() -> T) = KNum({ KNumOpenClContext(forceGpu) }, callback)
 
@@ -18,7 +19,12 @@ class KNumOpenClContext(val forceGpu: Boolean = false) : KNumContext() {
     }
 
     override fun <T> computeConstant(tensor: KNum.Constant<T>): KNum.Result<T> {
-        return ClBufferResult<T>(tensor.dims, tensor.type, context.createBuffer(tensor.data as FloatBuffer))
+        val tensorBuffer = tensor.data
+        return ClBufferResult<T>(tensor.dims, tensor.type, when (tensorBuffer) {
+            is FloatBuffer -> context.createBuffer(tensorBuffer)
+            is IntBuffer -> context.createBuffer(tensorBuffer)
+            else -> TODO("Unsupported ${tensor.data}")
+        })
     }
 
     private val programCache = LinkedHashMap<String, ClProgram>()
@@ -31,9 +37,14 @@ class KNumOpenClContext(val forceGpu: Boolean = false) : KNumContext() {
         """)
     }["myOperation"]
 
+    fun <T> KNum.Result<T>.toClBufferResult(): ClBufferResult<T> = when (this) {
+        is ClBufferResult<T> -> this
+        else -> ClBufferResult<T>(this.dims, this.type, context.createBuffer(this.getFloatArray()))
+    }
+
     override fun <T> computeBinaryOp(op: String, l: KNum.Result<T>, r: KNum.Result<T>): KNum.Result<T> {
-        val lcl = l as ClBufferResult<T>
-        val rcl = r as ClBufferResult<T>
+        val lcl = l.toClBufferResult()
+        val rcl = r.toClBufferResult()
         val kernel = when (op) {
             "add" -> generateBinopProgram("+", rcl.isSingle)
             "sub" -> generateBinopProgram("-", rcl.isSingle)
@@ -58,8 +69,11 @@ class KNumOpenClContext(val forceGpu: Boolean = false) : KNumContext() {
     }
 
     inner class ClBufferResult<T>(dims: IntArray, type: KNum.Type, val buffer: ClBuffer) : KNum.Result<T>(dims, type) {
-        override fun getData(): Buffer {
-            return FloatBuffer.wrap(buffer.readFloats(queue))
+        override fun reshape(dims: IntArray, type: KNum.Type): ClBufferResult<T> = ClBufferResult(dims, type, buffer)
+        override fun getData(): Buffer = when (type) {
+            KNum.Type.INT -> buffer.readInts(queue)
+            KNum.Type.FLOAT -> buffer.readFloats(queue)
+            else -> TODO()
         }
     }
 }
