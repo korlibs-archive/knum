@@ -6,11 +6,17 @@ import org.jocl.CL.*
 import java.io.Closeable
 import java.nio.FloatBuffer
 
+class ClContext(val type: DeviceType = DeviceType.ANY) : Closeable {
+    enum class DeviceType {
+        ANY, FORCE_GPU
+    }
 
-class ClContext : Closeable {
     val context: cl_context
     val platformIndex = 0
-    val deviceType = CL_DEVICE_TYPE_ALL
+    val deviceType = when (type) {
+        DeviceType.ANY -> CL_DEVICE_TYPE_ALL
+        DeviceType.FORCE_GPU -> CL_DEVICE_TYPE_GPU
+    }
     val deviceIndex = 0
     val device: cl_device_id
 
@@ -96,6 +102,7 @@ class ClProgram(val ctx: ClContext, val source: String) : Closeable {
         clBuildProgram(program, 0, null, null, null, null)
     }
 
+    operator fun get(name: String) = getKernel(name)
     fun getKernel(name: String) = ClKernel(this, name)
 
     override fun close() {
@@ -144,29 +151,5 @@ class ClCommandQueue(val ctx: ClContext) : Closeable {
 object ClExample {
     @JvmStatic
     fun main(args: Array<String>) {
-        ClContext().run {
-            queue {
-                val program = createProgram("""
-                    __kernel void sampleKernel(__global const float *a, __global const float *b, __global float *c) {
-                        int gid = get_global_id(0);
-                        c[gid] = a[gid] * b[gid] * 2.0;
-                    }
-                """)
-
-                val buffer1 = createBuffer(floatArrayOf(1f, 2f, 3f, 4f))
-                val buffer2 = createBuffer(floatArrayOf(5f, 6f, 7f, 8f))
-                val buffer3 = createEmptyBuffer(4, 4, writeable = true)
-                val sampleKernel = program.getKernel("sampleKernel")
-                sampleKernel(buffer1, buffer2, buffer3)
-
-                val result = buffer3.readFloats(queue)
-
-                println(result.toList())
-
-                buffer3.close()
-                buffer2.close()
-                buffer1.close()
-            }
-        }
     }
 }

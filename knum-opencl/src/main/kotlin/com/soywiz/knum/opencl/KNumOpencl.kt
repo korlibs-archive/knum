@@ -25,7 +25,7 @@ class KNumOpenClContext : KNumContext() {
     }
 }
 
-object KNumOpenClExample {
+object KNumOpenclExample {
     @JvmStatic
     fun main(args: Array<String>) {
         KNumOpenCl {
