@@ -1,0 +1,3 @@
+rootProject.name = 'knum-root'
+
+include ":knum", ":knum-opencl", ":knum-tensorflow"

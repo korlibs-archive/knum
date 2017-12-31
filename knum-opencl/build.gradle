@@ -1,0 +1,5 @@
+
+dependencies {
+    compile project(":knum")
+    compile "org.jocl:jocl:2.0.0"
+}

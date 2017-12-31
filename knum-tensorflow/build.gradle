@@ -1,0 +1,4 @@
+dependencies {
+    compile project(":knum")
+    compile "org.tensorflow:tensorflow:1.4.0"
+}

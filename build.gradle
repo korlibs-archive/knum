@@ -1,0 +1,38 @@
+buildscript {
+    ext.projectVersion = '0.0.1-SNAPSHOT'
+    ext.projectName = 'knum'
+    ext.projectGroup = 'com.soywiz'
+    ext.projectDesc = 'Kotlin Numeric Library with OpenCL and TensorFlow backends'
+    ext.projectHost = 'github'
+    ext.projectOrg = 'korlibs'
+    ext.projectLicense = 'MIT'
+    ext.projectDevelNick = 'soywiz'
+    ext.projectDevelName = 'Carlos Ballesteros Velasco'
+    ext.projectInceptionYear = 2017
+
+    ext.kotlinVersion = '1.2.10'
+
+    repositories {
+        mavenLocal()
+        jcenter()
+        maven { url "https://plugins.gradle.org/m2/" }
+    }
+
+    dependencies {
+        classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlinVersion"
+        classpath "gradle.plugin.com.soywiz:korlibs-build-gradle-plugin:0.1.5"
+        //classpath "com.soywiz:korlibs-build-gradle-plugin:0.1.5-SNAPSHOT"
+    }
+}
+
+apply plugin: 'com.soywiz.korlibs-build-gradle-plugin'
+
+dependencies {
+    compile "org.jetbrains.kotlin:kotlin-stdlib-jdk8:$kotlinVersion"
+    //compile "org.tensorflow:tensorflow:1.4.0"
+    //compile "org.jocl:jocl:2.0.0"
+}
+
+allprojects {
+    apply plugin: 'kotlin'
+}
