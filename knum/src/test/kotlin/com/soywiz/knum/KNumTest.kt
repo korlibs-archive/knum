@@ -27,6 +27,16 @@ open class KNumTest {
     }
 
     @Test
+    fun minVectors() = KNum({ contextGenerate() }) {
+        assertEquals(listOf(-1f, -1f, -1f, 1f, -2f, 2f, -1f, 0f), min(floatArrayOf(-1f, 1f, -1f, 1f, 2f, 2f, 0f, 0f).const, floatArrayOf(1f, -1f, -1f, 1f, -2f, 2f, -1f, 0f).const).compute().getFloatArray().toList())
+    }
+
+    @Test
+    fun maxVectors() = KNum({ contextGenerate() }) {
+        assertEquals(listOf(1f, 1f, -1f, 1f, 2f, 2f, 0f, 0f), max(floatArrayOf(-1f, 1f, -1f, 1f, 2f, 2f, 0f, 0f).const, floatArrayOf(1f, -1f, -1f, 1f, -2f, 2f, -1f, 0f).const).compute().getFloatArray().toList())
+    }
+
+    @Test
     fun pad() = KNum({ contextGenerate() }) {
         assertEquals(
                 listOf(

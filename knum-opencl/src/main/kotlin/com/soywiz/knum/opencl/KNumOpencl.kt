@@ -31,10 +31,14 @@ class KNumOpenClContext(val forceGpu: Boolean = false) : KNumContext() {
     private val programCache = LinkedHashMap<String, ClProgram>()
 
     private fun generateBinopProgram(op: String, scalar: Boolean) = programCache.getOrPut("myOperation$op$scalar") {
-        val l = "l[get_global_id(0)]"
-        val r = if (scalar) "r[0]" else "r[get_global_id(0)]"
+        val l = "larray[get_global_id(0)]"
+        val r = if (scalar) "rarray[0]" else "rarray[get_global_id(0)]"
         context.createProgram("""
-            __kernel void myOperation(__global const float *l, __global const float *r, __global float *o) { o[get_global_id(0)] = $l $op $r; }
+            __kernel void myOperation(__global const float *larray, __global const float *rarray, __global float *o) {
+                float l = $l;
+                float r = $r;
+                o[get_global_id(0)] = $op;
+            }
         """)
     }["myOperation"]
 
@@ -47,10 +51,12 @@ class KNumOpenClContext(val forceGpu: Boolean = false) : KNumContext() {
         val lcl = l.toClBufferResult()
         val rcl = r.toClBufferResult()
         val kernel = when (op) {
-            "add" -> generateBinopProgram("+", rcl.isSingle)
-            "sub" -> generateBinopProgram("-", rcl.isSingle)
-            "mul" -> generateBinopProgram("*", rcl.isSingle)
-            "div" -> generateBinopProgram("/", rcl.isSingle)
+            "add" -> generateBinopProgram("l + r", rcl.isSingle)
+            "sub" -> generateBinopProgram("l - r", rcl.isSingle)
+            "mul" -> generateBinopProgram("l * r", rcl.isSingle)
+            "div" -> generateBinopProgram("l / r", rcl.isSingle)
+            "min" -> generateBinopProgram("min(l, r)", rcl.isSingle)
+            "max" -> generateBinopProgram("max(l, r)", rcl.isSingle)
             else -> null
         }
 
