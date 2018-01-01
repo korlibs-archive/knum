@@ -38,4 +38,19 @@ open class KNumTest {
                 floatArrayOf(1f, 2f, 3f, 4f).const.reshape(2, 2).pad(1, 1).compute().getFloatArray().toList()
         )
     }
+
+    @Test
+    fun conv2d() = KNum({ contextGenerate() }) {
+        assertEquals(
+                listOf(
+                        79f, 67f,
+                        51f, 37f
+                ),
+                floatArrayOf(1f, 2f, 3f, 4f).const.reshape(2, 2).pad(1, 1).conv2d(floatArrayOf(
+                        1f, 2f, 3f,
+                        4f, 5f, 6f,
+                        7f, 8f, 9f
+                ).const(3, 3)).compute().getFloatArray().toList()
+        )
+    }
 }

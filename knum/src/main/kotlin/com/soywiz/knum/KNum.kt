@@ -55,11 +55,9 @@ open class KNumContext : Closeable {
                 val pad = compute(inputs[1] as KNum.Tensor<Int>).getIntArray()
                 when (itensor.rank) {
                     2 -> {
-                        val i = Float2Transfer(itensor.getFloatBuffer(), itensor.dims[0], itensor.dims[1])
-                        val outDims = Dimensions(itensor.dims[0] + pad[0] * 2, itensor.dims[1] + pad[1] * 2)
-                        val outBuffer = FloatBuffer.allocate(outDims.numElements)
-                        val o = Float2Transfer(outBuffer, outDims[0], outDims[1])
-                        val out = DefaultResult<T>(outDims, itensor.type, outBuffer)
+                        val i = Float2Transfer(itensor.dims, itensor.getFloatBuffer())
+                        val o = Float2Transfer(Dimensions(itensor.dims[0] + pad[0] * 2, itensor.dims[1] + pad[1] * 2))
+                        val out = DefaultResult<T>(o.dims, itensor.type, o.buffer)
                         val padX = pad[0]
                         val padY = pad[1]
                         for (y in 0 until i.height) {
@@ -71,6 +69,56 @@ open class KNumContext : Closeable {
                     }
                     else -> TODO("Just supported tensors of rank 2")
                 }
+            }
+            "conv2d" -> {
+                val itensor = compute(inputs[0] as KNum.Tensor<Float>)
+                val kernel = compute(inputs[1] as KNum.Tensor<Float>)
+                if (itensor.dims.rank != 2) throw IllegalArgumentException("Just supporting tensors of rank 2 right now")
+                if (!kernel.dims.match(3, 3)) throw IllegalArgumentException("Just supported kernels of 3x3")
+                val inp = Float2Transfer(itensor.dims, itensor.getFloatBuffer())
+                val out = Float2Transfer(Dimensions(inp.width - 2, inp.height - 2))
+                val krn = Float2Transfer(kernel.dims, kernel.getFloatBuffer())
+
+                val am = krn[0, 0]
+                val bm = krn[1, 0]
+                val cm = krn[2, 0]
+
+                val dm = krn[0, 1]
+                val em = krn[1, 1]
+                val fm = krn[2, 1]
+
+                val gm = krn[0, 2]
+                val hm = krn[1, 2]
+                val im = krn[2, 2]
+
+
+                for (y in 0 until out.height) {
+                    var a = inp[0, y]
+                    var b = inp[1, y]
+
+                    var d = inp[0, y + 1]
+                    var e = inp[1, y + 1]
+
+                    var g = inp[0, y + 2]
+                    var h = inp[1, y + 2]
+
+                    for (x in 0 until out.width) {
+                        val c = inp[x + 2, y]
+                        val f = inp[x + 2, y + 1]
+                        val i = inp[x + 2, y + 2]
+
+                        out[x, y] = (a * am) + (b * bm) + (c * cm) + (d * dm) + (e * em) + (f * gm) + (g * gm) + (h * hm) + (i * im)
+
+                        a = b
+                        d = e
+                        g = h
+
+                        b = c
+                        e = f
+                        h = i
+                    }
+                }
+                DefaultResult(dims, KNum.Type.FLOAT, out.buffer)
             }
             else -> TODO("Unsuported operation $op")
         }
@@ -88,7 +136,9 @@ open class KNumContext : Closeable {
         })
     }
 
-    class Float2Transfer(val buffer: FloatBuffer, val width: Int, val height: Int) {
+    class Float2Transfer(val dims: Dimensions, val buffer: FloatBuffer = FloatBuffer.allocate(dims.numElements)) {
+        val width = dims[0]
+        val height = dims[1]
         fun index(x: Int, y: Int) = x + (y * width)
         operator fun get(x: Int, y: Int) = buffer[index(x, y)]
         operator fun set(x: Int, y: Int, value: Float) = run { buffer.put(index(x, y), value) }
@@ -138,10 +188,11 @@ open class KNumContext : Closeable {
 
 class Dimensions(vararg val values: Int) {
     constructor(values: Iterable<Int>) : this(*values.toList().toIntArray())
-
+    fun map(callback: (value: Int) -> Int): Dimensions = Dimensions(values.map(callback))
     val rank: Int get() = values.size
     val numElements: Int by lazy { values.reduce { acc, i -> acc * i } }
     val isSingle: Boolean get() = values.size == 1 && values[0] == 1
+    fun match(vararg dims: Int) = (rank == dims.size) && (0 until dims.size).all { dims[it] == this[it] }
     fun toList() = values.toList()
     operator fun get(index: Int) = values[index]
     override fun toString(): String = values.joinToString(", ")
@@ -184,6 +235,8 @@ class KNum(val ctx: KNumContext) {
 
     val IntArray.const: Constant<Int> get() = Constant(Dimensions(this.size), Type.INT, IntBuffer.wrap(this))
     val FloatArray.const: Constant<Float> get() = Constant(Dimensions(this.size), Type.FLOAT, FloatBuffer.wrap(this))
+    fun FloatArray.const(dims: Dimensions) = const.reshape(dims)
+    fun FloatArray.const(vararg dims: Int) = const.reshape(*dims)
 
     val Int.const: Constant<Int> get() = Constant(Dimensions(1), Type.INT, IntBuffer.wrap(intArrayOf(this)))
     val Float.const: Constant<Float> get() = Constant(Dimensions(1), Type.FLOAT, FloatBuffer.wrap(floatArrayOf(this)))
@@ -218,6 +271,8 @@ class KNum(val ctx: KNumContext) {
     fun <T> Tensor<T>.reshape(vararg dims: Int): Tensor<T> = reshape(dims.toDimensions())
     fun <T> Tensor<T>.transpose(vararg axis: Int): Tensor<T> = Operation<T>("transpose", this.type, Dimensions(axis.map { this.dims.values[it] }), arrayOf(this))
     fun <T> Tensor<T>.pad(vararg pads: Int): Tensor<T> = Operation<T>("pad", this.type, Dimensions((0 until pads.size).map { dims.values[it] + pads[it] * 2 }), arrayOf(this, pads.const))
+
+    fun <T> Tensor<T>.conv2d(kernel: Tensor<T>): Tensor<T> = Operation<T>("conv2d", this.type, dims.map { it - 2 }, arrayOf(this, kernel))
 
     fun <T> Tensor<T>.compute(): Result<T> = ctx.computeRoot(this)
 }
