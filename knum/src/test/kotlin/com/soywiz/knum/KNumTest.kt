@@ -57,8 +57,8 @@ open class KNumTest {
     open fun conv2d() = knumTest {
         assertEquals(
                 listOf(
-                        79f, 67f,
-                        51f, 37f
+                        77f, 67f,
+                        47f, 37f
                 ),
                 floatArrayOf(1f, 2f, 3f, 4f).const.reshape(2, 2).pad(1, 1).conv2d(floatArrayOf(
                         1f, 2f, 3f,
@@ -94,6 +94,36 @@ open class KNumTest {
                         0f, 0f, 0f,
                         0f, 0f, 0f,
                         0f, 0f, 1f
+                ).const(3, 3)).compute().getFloatArray().toList()
+        )
+    }
+
+    @Test
+    open fun conv2dd() = knumTest {
+        assertEquals(
+                listOf(
+                        0f, 0f,
+                        0f, 1f
+                ),
+                floatArrayOf(1f, 2f, 3f, 4f).const.reshape(2, 2).pad(1, 1).conv2d(floatArrayOf(
+                        1f, 0f, 0f,
+                        0f, 0f, 0f,
+                        0f, 0f, 0f
+                ).const(3, 3)).compute().getFloatArray().toList()
+        )
+    }
+
+    @Test
+    open fun conv2de() = knumTest {
+        assertEquals(
+                listOf(
+                        0f, 0f,
+                        2f, 0f
+                ),
+                floatArrayOf(1f, 2f, 3f, 4f).const.reshape(2, 2).pad(1, 1).conv2d(floatArrayOf(
+                        0f, 0f, 1f,
+                        0f, 0f, 0f,
+                        0f, 0f, 0f
                 ).const(3, 3)).compute().getFloatArray().toList()
         )
     }

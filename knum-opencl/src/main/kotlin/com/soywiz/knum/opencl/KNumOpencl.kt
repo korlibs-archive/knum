@@ -55,50 +55,50 @@ class KNumOpenClContext(val forceGpu: Boolean = false) : KNumContext() {
 
     override fun <T> computeOperation(op: KNum.Operation<T>): KNum.Result<T> {
         when (op.op) {
-            //"conv2d" -> {
-            //    val inputResult = compute(op.inputs[0]).toClBufferResult()
-            //    val kernelResult = compute(op.inputs[1]).toClBufferResult()
-            //    val kernel = kernelCache("conv2d") {
-            //        """
-            //        #define iindex(x, y) (((y) * istride) + (x))
-            //        #define oindex(x, y) (((y) * ostride) + (x))
-//
-            //        #define ri(dx, dy) inp[iindex(x + (dx), y + (dy))]
-//
-            //        __kernel void myOperation(int istride, int ostride, __global const float *inp, __global const float *krn, __global float *otp) {
-            //            int x = get_global_id(0);
-            //            int y = get_global_id(1);
-//
-            //            otp[oindex(x, y)] =
-            //                  (ri(0, 0) * krn[0])
-            //                + (ri(1, 0) * krn[1])
-            //                + (ri(2, 0) * krn[2])
-            //                + (ri(0, 1) * krn[3])
-            //                + (ri(1, 1) * krn[4])
-            //                + (ri(2, 1) * krn[5])
-            //                + (ri(0, 2) * krn[6])
-            //                + (ri(1, 2) * krn[7])
-            //                + (ri(2, 2) * krn[8])
-            //            ;
-//
-            //        }
-            //        """
-            //    }
-            //    val output = ClBufferResult<T>(op.dims, op.type, context.createEmptyBuffer(4, op.numElements))
-            //    val istride = inputResult.dims[0]
-            //    val ostride = output.dims[0]
-//
-            //    //println(istride)
-            //    //println(ostride)
-            //    //println(inputResult.getFloatArray().toList())
-            //    //println(kernelResult.getFloatArray().toList())
-//
-            //    kernel(queue, istride, ostride, inputResult.buffer, kernelResult.buffer, output.buffer, globalWorkRanges = listOf(
-            //            0L until op.dims[0].toLong(),
-            //            0L until op.dims[1].toLong()
-            //    ))
-            //    return output
-            //}
+            "conv2d" -> {
+                val inputResult = compute(op.inputs[0]).toClBufferResult()
+                val kernelResult = compute(op.inputs[1]).toClBufferResult()
+                val kernel = kernelCache("conv2d") {
+                    """
+                    #define iindex(x, y) (((y) * istride) + (x))
+                    #define oindex(x, y) (((y) * ostride) + (x))
+
+                    #define ri(dx, dy) (inp[iindex(x + (dx), y + (dy))])
+
+                    __kernel void myOperation(int istride, int ostride, __global const float *inp, __global const float *krn, __global float *otp) {
+                        int x = get_global_id(0);
+                        int y = get_global_id(1);
+
+                        otp[oindex(x, y)] =
+                              (ri(0, 0) * krn[0])
+                            + (ri(1, 0) * krn[1])
+                            + (ri(2, 0) * krn[2])
+                            + (ri(0, 1) * krn[3])
+                            + (ri(1, 1) * krn[4])
+                            + (ri(2, 1) * krn[5])
+                            + (ri(0, 2) * krn[6])
+                            + (ri(1, 2) * krn[7])
+                            + (ri(2, 2) * krn[8])
+                        ;
+
+                    }
+                    """
+                }
+                val output = ClBufferResult<T>(op.dims, op.type, context.createEmptyBuffer(4, op.numElements))
+                val istride = inputResult.dims[0]
+                val ostride = output.dims[0]
+
+                //println(istride)
+                //println(ostride)
+                //println(inputResult.getFloatArray().toList())
+                //println(kernelResult.getFloatArray().toList())
+
+                kernel(queue, istride, ostride, inputResult.buffer, kernelResult.buffer, output.buffer, globalWorkRanges = listOf(
+                        0L until op.dims[0].toLong(),
+                        0L until op.dims[1].toLong()
+                ))
+                return output
+            }
         }
         return super.computeOperation(op)
     }

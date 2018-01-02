@@ -107,7 +107,7 @@ open class KNumContext : Closeable {
                         val f = inp[x + 2, y + 1]
                         val i = inp[x + 2, y + 2]
 
-                        out[x, y] = (a * am) + (b * bm) + (c * cm) + (d * dm) + (e * em) + (f * gm) + (g * gm) + (h * hm) + (i * im)
+                        out[x, y] = (a * am) + (b * bm) + (c * cm) + (d * dm) + (e * em) + (f * fm) + (g * gm) + (h * hm) + (i * im)
 
                         a = b
                         d = e
