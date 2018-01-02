@@ -1,4 +1,4 @@
-package com.soywiz.knum.opencl
+package com.soywiz.knum.opencl.util
 
 import org.intellij.lang.annotations.Language
 import org.jocl.*
