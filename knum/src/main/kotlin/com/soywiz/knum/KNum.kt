@@ -188,12 +188,22 @@ open class KNumContext : Closeable {
 
 class Dimensions(vararg val values: Int) {
     constructor(values: Iterable<Int>) : this(*values.toList().toIntArray())
+
     fun map(callback: (value: Int) -> Int): Dimensions = Dimensions(values.map(callback))
     val rank: Int get() = values.size
     val numElements: Int by lazy { values.reduce { acc, i -> acc * i } }
     val isSingle: Boolean get() = values.size == 1 && values[0] == 1
     fun match(vararg dims: Int) = (rank == dims.size) && (0 until dims.size).all { dims[it] == this[it] }
     fun toList() = values.toList()
+    fun index(vararg pos: Int): Int {
+        var sum = 0
+        for (i in values.indices) {
+            sum *= values.getOrElse(i - 1) { 1 }
+            sum += pos[i]
+        }
+        return sum
+    }
+
     operator fun get(index: Int) = values[index]
     override fun toString(): String = values.joinToString(", ")
 }
