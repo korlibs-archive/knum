@@ -124,7 +124,7 @@ class ClKernel(val program: ClProgram, val name: String) {
         queue.waitCompleted()
     }
 
-    fun invokeQueue(queue: ClCommandQueue, vararg args: Any, globalWorkRanges: List<LongRange>?, localSizes: List<Long>? = null) {
+    fun invokeQueue(queue: ClCommandQueue, vararg args: Any, globalWorkRanges: List<LongRange>? = null, localSizes: List<Long>? = null) {
         val errorCode = IntArray(1)
         val kernel = clCreateKernel(program.program, name, errorCode)
         for ((index, arg) in args.withIndex()) {
