@@ -112,7 +112,7 @@ class KNumOpenClContext(val forceGpu: Boolean = false) : KNumContext() {
                 //println(inputResult.getFloatArray().toList())
                 //println(kernelResult.getFloatArray().toList())
 
-                kernel.invokeQueue(queue, istride, ostride, inputResult.buffer, kernelResult.buffer, output.buffer, globalWorkRanges = listOf(
+                kernel.queue(queue, istride, ostride, inputResult.buffer, kernelResult.buffer, output.buffer, globalWorkRanges = listOf(
                         0L until op.dims[1].toLong()
                 ))
                 return output
@@ -137,7 +137,7 @@ class KNumOpenClContext(val forceGpu: Boolean = false) : KNumContext() {
         if (kernel != null) {
             //println("Accelerated $op")
             return ClBufferResult(lcl.dims, lcl.type, context.createEmptyBuffer(lcl.type.size, lcl.numElements).apply {
-                kernel.invokeQueue(queue, lcl.buffer, rcl.buffer, this)
+                kernel.queue(queue, lcl.buffer, rcl.buffer, this)
             })
         } else {
             log { "Not accelerated $op" }

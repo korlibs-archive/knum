@@ -78,7 +78,7 @@ class ClQueueContext(val queue: ClCommandQueue) {
     //fun ClBuffer.readFloatsQueue() = readFloatsQueue(queue)
 
     operator fun ClKernel.invoke(vararg args: Any, globalWorkRanges: List<LongRange>? = null, localSizes: List<Long>? = null) = invoke(queue, *args, globalWorkRanges = globalWorkRanges, localSizes = localSizes)
-    fun ClKernel.invokeQueue(vararg args: Any, globalWorkRanges: List<LongRange>? = null, localSizes: List<Long>? = null) = invokeQueue(queue, *args, globalWorkRanges = globalWorkRanges, localSizes = localSizes)
+    fun ClKernel.invokeQueue(vararg args: Any, globalWorkRanges: List<LongRange>? = null, localSizes: List<Long>? = null) = queue(queue, *args, globalWorkRanges = globalWorkRanges, localSizes = localSizes)
 }
 
 class ClBuffer(val ctx: ClContext, val ptr: Pointer?, val elementSize: Int, val length: Int, val writeable: Boolean) : Closeable {
@@ -120,11 +120,11 @@ class ClProgram(val ctx: ClContext, val source: String) : Closeable {
 
 class ClKernel(val program: ClProgram, val name: String) {
     operator fun invoke(queue: ClCommandQueue, vararg args: Any, globalWorkRanges: List<LongRange>? = null, localSizes: List<Long>? = null) {
-        invokeQueue(queue, *args, globalWorkRanges = globalWorkRanges, localSizes = localSizes)
+        queue(queue, *args, globalWorkRanges = globalWorkRanges, localSizes = localSizes)
         queue.waitCompleted()
     }
 
-    fun invokeQueue(queue: ClCommandQueue, vararg args: Any, globalWorkRanges: List<LongRange>? = null, localSizes: List<Long>? = null) {
+    fun queue(queue: ClCommandQueue, vararg args: Any, globalWorkRanges: List<LongRange>? = null, localSizes: List<Long>? = null) {
         val errorCode = IntArray(1)
         val kernel = clCreateKernel(program.program, name, errorCode)
         for ((index, arg) in args.withIndex()) {
