@@ -41,15 +41,15 @@ open class KNumContext : Closeable {
         }
     }
 
-    open protected fun <T> computeConstant(tensor: KNum.Constant<T>): KNum.Result<T> {
-        return DefaultResult<T>(tensor.dims, tensor.type, tensor.data)
+    open protected fun <T> computeConstant(constant: KNum.Constant<T>): KNum.Result<T> {
+        return DefaultResult<T>(constant.dims, constant.type, constant.data)
     }
 
-    open protected fun <T> computeOperation(tensor: KNum.Operation<T>): KNum.Result<T> = tensor.run {
-        when (op) {
-            "reshape" -> compute(inputs[0] as KNum.Tensor<T>).reshape(tensor.dims, tensor.type)
-            "add", "sub", "mul", "div", "min", "max" -> computeBinaryOp<T>(op, compute(inputs[0] as KNum.Tensor<T>), compute(inputs[1] as KNum.Tensor<T>))
-            "neg" -> computeUnaryOp<T>(op, compute(inputs[0] as KNum.Tensor<T>))
+    open protected fun <T> computeOperation(op: KNum.Operation<T>): KNum.Result<T> = op.run {
+        when (this.op) {
+            "reshape" -> compute(inputs[0] as KNum.Tensor<T>).reshape(op.dims, op.type)
+            "add", "sub", "mul", "div", "min", "max" -> computeBinaryOp<T>(this.op, compute(inputs[0] as KNum.Tensor<T>), compute(inputs[1] as KNum.Tensor<T>))
+            "neg" -> computeUnaryOp<T>(this.op, compute(inputs[0] as KNum.Tensor<T>))
             "pad" -> {
                 val itensor = compute(inputs[0] as KNum.Tensor<T>)
                 val pad = compute(inputs[1] as KNum.Tensor<Int>).getIntArray()
@@ -120,7 +120,7 @@ open class KNumContext : Closeable {
                 }
                 DefaultResult(dims, KNum.Type.FLOAT, out.buffer)
             }
-            else -> TODO("Unsuported operation $op")
+            else -> TODO("Unsuported operation ${this.op}")
         }
     }
 
