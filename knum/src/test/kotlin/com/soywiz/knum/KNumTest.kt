@@ -127,4 +127,27 @@ open class KNumTest {
                 ).const(3, 3)).compute().getFloatArray().toList()
         )
     }
+
+    @Test
+    open fun conv2dBig() = knumTest {
+        assertEquals(
+                listOf(
+                        1f, 2f, 3f, 4f,
+                        5f, 6f, 7f, 8f,
+                        9f, 10f, 11f, 12f,
+                        13f, 14f, 15f, 16f
+                ),
+                floatArrayOf(
+                        1f, 2f, 3f, 4f,
+                        5f, 6f, 7f, 8f,
+                        9f, 10f, 11f, 12f,
+                        13f, 14f, 15f, 16f
+                ).const.reshape(4, 4).pad(1, 1).conv2d(floatArrayOf(
+                        0f, 0f, 0f,
+                        0f, 1f, 0f,
+                        0f, 0f, 0f
+                ).const(3, 3)).compute().getFloatArray().toList()
+        )
+    }
+
 }

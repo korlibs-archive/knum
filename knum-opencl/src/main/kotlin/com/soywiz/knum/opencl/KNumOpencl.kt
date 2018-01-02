@@ -3,8 +3,10 @@ package com.soywiz.knum.opencl
 import com.soywiz.knum.Dimensions
 import com.soywiz.knum.KNum
 import com.soywiz.knum.KNumContext
-import com.soywiz.knum.toTypedArray
-import org.intellij.lang.annotations.Language
+import com.soywiz.knum.opencl.util.ClBuffer
+import com.soywiz.knum.opencl.util.ClCommandQueue
+import com.soywiz.knum.opencl.util.ClContext
+import com.soywiz.knum.opencl.util.ClProgram
 import java.nio.Buffer
 import java.nio.FloatBuffer
 import java.nio.IntBuffer
@@ -60,27 +62,44 @@ class KNumOpenClContext(val forceGpu: Boolean = false) : KNumContext() {
                 val kernelResult = compute(op.inputs[1]).toClBufferResult()
                 val kernel = kernelCache("conv2d") {
                     """
-                    #define iindex(x, y) (((y) * istride) + (x))
-                    #define oindex(x, y) (((y) * ostride) + (x))
+                    #define iindex(x, y) (((y) * iwidth) + (x))
+                    #define oindex(x, y) (((y) * owidth) + (x))
 
-                    #define ri(dx, dy) (inp[iindex(x + (dx), y + (dy))])
+                    #define rri(x, y) inp[iindex(x, y)]
 
-                    __kernel void myOperation(int istride, int ostride, __global const float *inp, __global const float *krn, __global float *otp) {
-                        int x = get_global_id(0);
-                        int y = get_global_id(1);
+                    // @TODO: Vectorize this!
+                    __kernel void myOperation(int iwidth, int owidth, __global const float *inp, __global const float *krn, __global float *otp) {
+                        int y = get_global_id(0);
 
-                        otp[oindex(x, y)] =
-                              (ri(0, 0) * krn[0])
-                            + (ri(1, 0) * krn[1])
-                            + (ri(2, 0) * krn[2])
-                            + (ri(0, 1) * krn[3])
-                            + (ri(1, 1) * krn[4])
-                            + (ri(2, 1) * krn[5])
-                            + (ri(0, 2) * krn[6])
-                            + (ri(1, 2) * krn[7])
-                            + (ri(2, 2) * krn[8])
-                        ;
+                        int outIndex = oindex(0, y);
 
+                        float ma = krn[0], mb = krn[1], mc = krn[2];
+                        float md = krn[3], me = krn[4], mf = krn[5];
+                        float mg = krn[6], mh = krn[7], mi = krn[8];
+
+                        float a = rri(0, y + 0);
+                        float b = rri(1, y + 0);
+
+                        float d = rri(0, y + 1);
+                        float e = rri(1, y + 1);
+
+                        float g = rri(0, y + 2);
+                        float h = rri(1, y + 2);
+
+                        for (int x = 0; x < owidth; x++) {
+                            float c = rri(x + 2, y + 0);
+                            float f = rri(x + 2, y + 1);
+                            float i = rri(x + 2, y + 2);
+
+                            otp[outIndex + x] =
+                                (a * ma) + (b * mb) + (c * mc) +
+                                (d * md) + (e * me) + (f * mf) +
+                                (g * mg) + (h * mh) + (i * mi)
+                            ;
+
+                            a = b; d = e; g = h;
+                            b = c; e = f; h = i;
+                        }
                     }
                     """
                 }
@@ -94,7 +113,6 @@ class KNumOpenClContext(val forceGpu: Boolean = false) : KNumContext() {
                 //println(kernelResult.getFloatArray().toList())
 
                 kernel(queue, istride, ostride, inputResult.buffer, kernelResult.buffer, output.buffer, globalWorkRanges = listOf(
-                        0L until op.dims[0].toLong(),
                         0L until op.dims[1].toLong()
                 ))
                 return output
