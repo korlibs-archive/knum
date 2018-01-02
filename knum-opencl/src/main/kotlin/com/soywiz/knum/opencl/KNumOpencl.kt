@@ -63,19 +63,20 @@ class KNumOpenClContext(val forceGpu: Boolean = false) : KNumContext() {
                 val kernel = kernelCache("conv2d") {
                     """
                     #define iindex(x, y) (((y) * iwidth) + (x))
-                    #define oindex(x, y) (((y) * owidth) + (x))
-
+                    #define oindex(x, y, z) (((((z) * oheight) + (y)) * owidth) + (x))
                     #define rri(x, y) inp[iindex(x, y)]
 
                     // @TODO: Vectorize this!
-                    __kernel void myOperation(int iwidth, int owidth, __global const float *inp, __global const float *krn, __global float *otp) {
+                    __kernel void myOperation(int iwidth, int owidth, int oheight, __global const float *inp, __global const float *krn, __global float *otp) {
                         int y = get_global_id(0);
+                        int z = get_global_id(1);
 
-                        int outIndex = oindex(0, y);
+                        int outIndex = oindex(0, y, z);
 
-                        float ma = krn[0], mb = krn[1], mc = krn[2];
-                        float md = krn[3], me = krn[4], mf = krn[5];
-                        float mg = krn[6], mh = krn[7], mi = krn[8];
+                        int z9 = (z * 9);
+                        float ma = krn[z9 + 0], mb = krn[z9 + 1], mc = krn[z9 + 2];
+                        float md = krn[z9 + 3], me = krn[z9 + 4], mf = krn[z9 + 5];
+                        float mg = krn[z9 + 6], mh = krn[z9 + 7], mi = krn[z9 + 8];
 
                         float a = rri(0, y + 0);
                         float b = rri(1, y + 0);
@@ -105,15 +106,17 @@ class KNumOpenClContext(val forceGpu: Boolean = false) : KNumContext() {
                 }
                 val output = ClBufferResult<T>(op.dims, op.type, context.createEmptyBuffer(4, op.numElements))
                 val istride = inputResult.dims[0]
-                val ostride = output.dims[0]
+                val owidth = output.dims[0]
+                val oheight = output.dims[1]
 
                 //println(istride)
                 //println(ostride)
                 //println(inputResult.getFloatArray().toList())
                 //println(kernelResult.getFloatArray().toList())
 
-                kernel.queue(queue, istride, ostride, inputResult.buffer, kernelResult.buffer, output.buffer, globalWorkRanges = listOf(
-                        0L until op.dims[1].toLong()
+                kernel.queue(queue, istride, owidth, oheight, inputResult.buffer, kernelResult.buffer, output.buffer, globalWorkRanges = listOf(
+                        0L until op.dims[1].toLong(),
+                        0L until 1L // depth
                 ))
                 return output
             }
